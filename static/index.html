@@ -67,13 +67,13 @@
         
         <label>Images Folder</label>
         <div class="input-group">
-          <input type="text" id="imagesPath" value="C:\Users\iamsh\Downloads\Untitled collection (1)" placeholder="Select image folder...">
+          <input type="text" id="imagesPath" placeholder="Select image folder...">
           <button class="btn" onclick="browseFolder('imagesPath')">📂 Choose Folder</button>
         </div>
         
         <label>SRT Subtitle File</label>
         <div class="input-group">
-          <input type="text" id="srtPath" value="C:\Users\iamsh\Downloads\What Did Ancient Humans Do At Night.srt" placeholder="Select SRT file...">
+          <input type="text" id="srtPath" placeholder="Select SRT file...">
           <button class="btn" onclick="browseFile('srtPath', 'srt')">📄 Choose SRT</button>
         </div>
 
@@ -81,6 +81,12 @@
         <div class="input-group">
           <input type="text" id="audioPath" placeholder="Select Audio file...">
           <button class="btn" onclick="browseFile('audioPath', 'audio')">🎵 Choose Audio</button>
+        </div>
+
+        <label>Image Motion File (Optional, from AI)</label>
+        <div class="input-group">
+          <input type="text" id="motionPath" placeholder="Select motion .json file...">
+          <button class="btn" onclick="browseFile('motionPath', 'motion')">🎬 Choose Motion</button>
         </div>
 
         <button class="btn" style="width: 100%; margin-top: 5px; justify-content: center; background: #262e45;" onclick="scanFiles()">⚡ Analyze & Match Timing</button>
@@ -105,11 +111,24 @@
         </div>
 
         <label>Or Type Target Project Name</label>
-        <input type="text" id="projectName" value="1103" placeholder="Enter target project name (e.g. 1103)..." style="margin-bottom: 14px;">
+        <input type="text" id="projectName" placeholder="Enter target project name..." style="margin-bottom: 14px;">
 
         <div style="background: #141724; border: 1px solid #23293d; border-radius: 8px; padding: 12px; margin-top: 5px; font-size: 12px; color: var(--text-muted); line-height: 1.6;">
           💡 <strong>Safe Mode:</strong> Shudhu apnar select kora project-er timeline update hobe. CapCut-er meta config change hobe na, tai <em>"unusual path"</em> error kokhono ashbe na.
         </div>
+
+        <label>Image Motion Effect</label>
+        <select id="effectSelect" style="margin-bottom: 14px;">
+          <option value="none">None (static images)</option>
+          <option value="zoom_in">Slow Zoom In</option>
+          <option value="zoom_out">Slow Zoom Out</option>
+          <option value="pan_left">Pan Left</option>
+          <option value="pan_right">Pan Right</option>
+          <option value="alternate" selected>Alternate Zoom In / Out</option>
+          <option value="random">Random Mix</option>
+        </select>
+        <label>Zoom Strength: <span id="zoomVal">15</span>%</label>
+        <input type="range" id="zoomStrength" min="5" max="40" value="15" style="margin-bottom: 14px;" oninput="document.getElementById('zoomVal').textContent=this.value">
 
         <button class="btn-primary" onclick="syncDraft()">⚡ Sync into Target Draft</button>
       </div>
@@ -145,6 +164,7 @@
             <th style="width: 100px;">Start</th>
             <th style="width: 100px;">End</th>
             <th style="width: 80px;">Duration</th>
+            <th style="width: 90px;">Effect</th>
             <th>Voiceover Dialogue</th>
           </tr>
         </thead>
@@ -201,13 +221,12 @@
             const opt = document.createElement('option');
             opt.value = d;
             opt.innerText = `Draft Project: ${d}`;
-            if (d.includes('1103')) opt.selected = true;
             sel.appendChild(opt);
           });
           document.getElementById('projectName').value = sel.value;
           log(`CapCut detected! Found ${drafts.length} existing projects.`);
         } else {
-          sel.innerHTML = '<option value="1103">Draft Project: 1103 (Default)</option>';
+          sel.innerHTML = '<option value="">No drafts found - type a project name below</option>';
         }
       } catch (e) {
         log('Error detecting CapCut: ' + e);
@@ -225,7 +244,8 @@
       const payload = {
         images_dir: document.getElementById('imagesPath').value.trim(),
         srt_path: document.getElementById('srtPath').value.trim(),
-        audio_path: document.getElementById('audioPath').value.trim()
+        audio_path: document.getElementById('audioPath').value.trim(),
+        motion_path: document.getElementById('motionPath').value.trim()
       };
       log('Scanning images folder and parsing SRT...');
       try {
@@ -255,10 +275,12 @@
             <td>${row.start}</td>
             <td>${row.end}</td>
             <td>${row.duration}</td>
+            <td>${row.effect}</td>
             <td>${row.narration}</td>
           `;
           tbody.appendChild(tr);
         });
+        (data.warnings || []).forEach(w => log('⚠ ' + w));
         log(`Success! Matched ${data.total_matched} images across ${data.srt_cues_count} cues (${data.total_duration}).`);
       } catch (e) {
         log('Error: ' + e.message);
@@ -266,14 +288,17 @@
     }
 
     async function syncDraft() {
-      const targetDraft = document.getElementById('projectName').value.trim() || document.getElementById('draftSelect').value || '1103';
+      const targetDraft = document.getElementById('projectName').value.trim() || document.getElementById('draftSelect').value || '';
       const payload = {
         images_dir: document.getElementById('imagesPath').value.trim(),
         srt_path: document.getElementById('srtPath').value.trim(),
         audio_path: document.getElementById('audioPath').value.trim(),
         draft_name: targetDraft,
         project_name: targetDraft,
-        draft_root: document.getElementById('draftRoot').value.trim()
+        draft_root: document.getElementById('draftRoot').value.trim(),
+        motion_path: document.getElementById('motionPath').value.trim(),
+        effect: document.getElementById('effectSelect').value,
+        zoom_strength: parseInt(document.getElementById('zoomStrength').value) / 100
       };
 
       log(`Syncing into target CapCut project '${targetDraft}'...`);
@@ -288,6 +313,8 @@
           const errDetail = typeof data.detail === 'object' ? JSON.stringify(data.detail) : data.detail;
           throw new Error(errDetail || 'Sync failed');
         }
+        (data.warnings || []).forEach(w => log('⚠ ' + w));
+        if (data.motion_file_used) log(`Motion file applied to ${data.motion_file_used} images.`);
         log(`✓ SUCCESS: ${data.message}`);
         alert(`Success! Project '${targetDraft}' timeline updated with ${data.clips_synced} clips!\nNow open CapCut and open project '${targetDraft}'.`);
       } catch (e) {

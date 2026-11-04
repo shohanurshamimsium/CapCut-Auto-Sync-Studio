@@ -1,0 +1,7 @@
+[
+  {"image": 1, "effect": "zoom_in",  "strength": 0.15},
+  {"image": 2, "effect": "pan_left", "strength": 0.10},
+  {"image": 3, "effect": "zoom_out", "strength": 0.20},
+  {"image": 4, "effect": "pan_right", "strength": 0.10},
+  {"image": 5, "effect": "none"}
+]
