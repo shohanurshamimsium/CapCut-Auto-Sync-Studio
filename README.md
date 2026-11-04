@@ -71,4 +71,4 @@ Made by [shohanurshamimsium](https://github.com/shohanurshamimsium)
 
 ## License
 
-No license has been added yet. Consider adding one (for example MIT) if you want others to be able to reuse your code.
+No license has been added yet.
